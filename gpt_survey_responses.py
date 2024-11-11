@@ -6,7 +6,7 @@ import csv
 # Set up OpenAI client
 client = OpenAI(api_key="")
 
-def load_persona():
+def load_personas(num_personas=10):
     print("Loading the dataset...")
     ds = load_dataset("proj-persona/PersonaHub", "persona")
     
@@ -15,8 +15,8 @@ def load_persona():
         exit()
     
     total_personas = len(ds['train'])
-    selected_index = random.randint(0, total_personas - 1)
-    return ds['train'][selected_index]['persona']
+    selected_indices = random.sample(range(total_personas), num_personas)
+    return [ds['train'][index]['persona'] for index in selected_indices]
 
 def generate_response(system_prompt, user_prompt):
     try:
@@ -36,11 +36,8 @@ def generate_response(system_prompt, user_prompt):
         return "I'm sorry, I couldn't generate a response."
 
 def main():
-    persona = load_persona()
-    print(f"Selected persona: {persona}")
-
-    sub_part_system_prompt = f"You are an AI assistant roleplaying as the following persona: {persona}. Answer questions as this persona would, only give me the rating number nothing else"
-
+    personas = load_personas(100)
+    
     sub_part_survey_questions = [
         "After placing an order on an e-commerce website, how important are the following features to you? (Not at all important (1) , slightly important (2), moderately important (3), very important (4), extremely important (5)) Personal shopping assistant",
         "After placing an order on an e-commerce website, how important are the following features to you? (Not at all important (1) , slightly important (2), moderately important (3), very important (4), extremely important (5)) Interactive voice assistant for order management",
@@ -67,8 +64,6 @@ def main():
 
     ]
     
-    yes_no_system_prompt = f"You are an AI assistant roleplaying as the following persona: {persona}. Answer questions as this persona would, only give me the answer(or option number where included in the question) nothing else"
-
     yes_no_survey_questions = [
         "Would you feel comfortable giving an AI assistant instructions to automatically cancel and replace a delayed order? 1) Yes, I’d be comfortable with that. 2) I’d be open to it, but I’d want to review the replacement choice before it’s ordered. 3) I’d be concerned about the AI making a mistake (e.g., ordering the wrong item or something I won’t like). 4) I’d worry about trusting the AI with my order decisions (e.g., it might not understand my preferences). 5) No, I wouldn’t be comfortable with an AI making these changes without my approval.",
         "How comfortable are you with an AI assistant proactively making online shopping decisions on your behalf? (For example - An AI assistant automatically ordering diapers if it thinks you are out of diapers OR AI automatically initiates a return if it thinks that you are not satisfied with the order) 1) Yes, I would find proactive support very helpful 2) Yes, but only for certain types of issues 3) I'm not sure 4) No, but I might prefer it for certain issues 5) No, I prefer to manage issues myself.",
@@ -76,21 +71,23 @@ def main():
         "Do you work or study in a technology-related field? 1) Yes, I am employed or studying in a technology-related field 2) No, I am not employed or studying in a technology-related field",
         "When using AI chatbots like ChatGPT or Gemini, what do you dislike? (Select all that apply) 1) It’s not a human and not “intelligent” enough 2) It gives me generic solutions; I need specificity 3) I hate typing into chatbots 4) The chatbot takes too long to respond 5) The response is very wordy and not structured properly 6) I do not trust their response or their sources 7) I am not used to using chatbots 8) None, I like using chatbots"
     ]
-    
+
     with open('survey_responses.csv', 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Persona', 'Question', 'Response'])
 
-        for question in sub_part_survey_questions:
-            response = generate_response(sub_part_system_prompt, question)
-            writer.writerow([persona, question, response])
-            # print(f"Question: {question}")
-            # print(f"Answer: {response}\n")
-        for question in yes_no_survey_questions:
-            response = generate_response(yes_no_system_prompt, question)
-            writer.writerow([persona, question, response])
-            # print(f"Question: {question}")
-            # print(f"Answer: {response}\n")
+        for persona in personas:
+            print(f"Processing persona: {persona[:50]}...")  # Print first 50 characters of persona
+            sub_part_system_prompt = f"You are an AI assistant roleplaying as the following persona: {persona}. Answer questions as this persona would, only give me the rating number nothing else"
+            yes_no_system_prompt = f"You are an AI assistant roleplaying as the following persona: {persona}. Answer questions as this persona would, only give me the answer(or option where included in the question) nothing else"
+            
+            for question in sub_part_survey_questions:
+                response = generate_response(sub_part_system_prompt.format(persona=persona), question)
+                writer.writerow([persona, question, response])
+            
+            for question in yes_no_survey_questions:
+                response = generate_response(yes_no_system_prompt.format(persona=persona), question)
+                writer.writerow([persona, question, response])
 
     print("Survey responses have been saved to survey_responses.csv")
 
